@@ -37,8 +37,9 @@ dependencies {
   compile project(':apollo-rx-support')
   compile project(':apollo-rx2-support')
   compile project(':apollo-http-cache')
+  compile project(':apollo-api')
   compile dep.appcompat
-
+  compile dep.rxjava2
   testCompile dep.junit
   testCompile dep.truth
   testCompile dep.mockWebServer
