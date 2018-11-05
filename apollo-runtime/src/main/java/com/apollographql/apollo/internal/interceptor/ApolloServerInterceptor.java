@@ -13,8 +13,10 @@ import com.apollographql.apollo.internal.json.InputFieldJsonWriter;
 import com.apollographql.apollo.internal.json.JsonWriter;
 import com.apollographql.apollo.response.ScalarTypeAdapters;
 import com.apollographql.apollo.internal.ApolloLogger;
+import com.google.gson.Gson;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 import org.jetbrains.annotations.NotNull;
@@ -36,6 +38,7 @@ import static com.apollographql.apollo.api.internal.Utils.checkNotNull;
  * server. It is the last interceptor in the chain of interceptors and hence doesn't call {@link
  * ApolloInterceptorChain#proceed(FetchOptions)} on the interceptor chain.
  */
+
 @SuppressWarnings("WeakerAccess") public final class ApolloServerInterceptor implements ApolloInterceptor {
   static final String HEADER_ACCEPT_TYPE = "Accept";
   static final String HEADER_CONTENT_TYPE = "Content-Type";
@@ -111,15 +114,37 @@ import static com.apollographql.apollo.api.internal.Utils.checkNotNull;
   }
 
   Call httpCall(Operation operation, CacheHeaders cacheHeaders) throws IOException {
+
+    boolean useGet = false;
+
     RequestBody requestBody = httpRequestBody(operation);
     Request.Builder requestBuilder = new Request.Builder()
-        .url(serverUrl)
-        .post(requestBody)
-        .header(HEADER_ACCEPT_TYPE, ACCEPT_TYPE)
-        .header(HEADER_CONTENT_TYPE, CONTENT_TYPE)
-        .header(HEADER_APOLLO_OPERATION_ID, operation.operationId())
-        .header(HEADER_APOLLO_OPERATION_NAME, operation.name().name())
-        .tag(operation.operationId());
+
+     .header(HEADER_ACCEPT_TYPE, ACCEPT_TYPE)
+     .header(HEADER_CONTENT_TYPE, CONTENT_TYPE)
+     .header(HEADER_APOLLO_OPERATION_ID, operation.operationId())
+     .header(HEADER_APOLLO_OPERATION_NAME, operation.name().name())
+     .tag(operation.operationId());
+
+    /*
+    ?variables={"client":"ard"}&query=query showsPage ($client: ID!) { showsPage(client: $client) { id title } }&extensions={"persistedQuery":{"version":1,"sha256Hash":"d3024ebe61d31beeaae5ccf1a21
+    */
+
+    Gson variablesAsGson = new Gson();
+
+     Map<String, Object> variables = operation.variables().valueMap();
+
+
+
+    if (useGet) {
+      requestBuilder.url(serverUrl)
+              .post(requestBody);
+    } else {
+      requestBuilder.url(serverUrl)
+              .post(requestBody);
+    }
+
+
 
     if (cachePolicy.isPresent()) {
       HttpCachePolicy.Policy cachePolicy = this.cachePolicy.get();
