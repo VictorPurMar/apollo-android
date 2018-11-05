@@ -14,8 +14,15 @@ import com.apollographql.apollo.internal.json.JsonWriter;
 import com.apollographql.apollo.response.ScalarTypeAdapters;
 import com.apollographql.apollo.internal.ApolloLogger;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
@@ -30,6 +37,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okio.Buffer;
+import sun.rmi.runtime.Log;
 
 import static com.apollographql.apollo.api.internal.Utils.checkNotNull;
 
@@ -126,25 +134,41 @@ import static com.apollographql.apollo.api.internal.Utils.checkNotNull;
      .header(HEADER_APOLLO_OPERATION_NAME, operation.name().name())
      .tag(operation.operationId());
 
-    /*
-    ?variables={"client":"ard"}&query=query showsPage ($client: ID!) { showsPage(client: $client) { id title } }&extensions={"persistedQuery":{"version":1,"sha256Hash":"d3024ebe61d31beeaae5ccf1a21
-    */
 
-    Gson variablesAsGson = new Gson();
+     Gson variablesAsGson = new Gson();
 
      Map<String, Object> variables = operation.variables().valueMap();
 
+     String query = operation.queryDocument().toString();
+     String hash = operation.operationId();
 
 
     if (useGet) {
-      requestBuilder.url(serverUrl)
-              .post(requestBody);
+      Gson gsonVariables = new Gson();
+
+      gsonVariables.toJson(variables);
+
+      Map<String, Object> extensionsMap = new HashMap<String,Object>();
+
+      Map<String, Object> persistedQueryMap = new HashMap<String,Object>();
+      persistedQueryMap.put("version","1");
+      persistedQueryMap.put("sha256Hash",operation.operationId());
+      extensionsMap.put("persistedQuery",persistedQueryMap);
+
+      Gson gsonExtensions = new Gson();
+      gsonExtensions.toJson(extensionsMap);
+
+      String queryStr = operation.queryDocument().toString();
+
+      requestBuilder.url(serverUrl + "?variables=" + URLEncoder.encode(gsonVariables.toString(),"UTF-8") + "&query="
+              +URLEncoder.encode(queryStr,"UTF-8")+"&extensions="+URLEncoder.encode(gsonExtensions.toString(),"UTF-8"))
+              .get();
     } else {
       requestBuilder.url(serverUrl)
               .post(requestBody);
     }
 
-
+// TODO: first send hash -> if it fails send query with hash -> next time hash will return a result via get
 
     if (cachePolicy.isPresent()) {
       HttpCachePolicy.Policy cachePolicy = this.cachePolicy.get();
